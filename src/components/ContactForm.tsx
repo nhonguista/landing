@@ -3,26 +3,28 @@
 import { useState } from "react";
 import { Button, Input, useToast } from "@nhonguista/ui";
 import { isValidName, isValidMozambicanPhone } from "moz-utils";
+import { apiFetch } from "@/lib/api";
+import { Loader2, CheckCircle2 } from "lucide-react";
 
 export function ContactForm() {
   const [formData, setFormData] = useState({ name: "", phone: "", message: "" });
   const [errors, setErrors] = useState({ name: "", phone: "", message: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const { toast } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    // Clear error when typing
     if (errors[name as keyof typeof errors]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validation
+    // Validação
     const newErrors = { name: "", phone: "", message: "" };
     let hasError = false;
 
@@ -52,20 +54,51 @@ export function ContactForm() {
       return;
     }
 
-    // Simulate submission
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      
-      toast({
-        title: "Mensagem enviada!",
-        description: "Recebemos o seu contacto. Responderemos em breve.",
-        variant: "success"
+    try {
+      // Submissão real para a API do backend
+      await apiFetch('/contacts', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: formData.name,
+          phone: formData.phone,
+          message: formData.message,
+        })
       });
 
+      setIsSuccess(true);
       setFormData({ name: "", phone: "", message: "" });
-    }, 1000);
+      toast({
+        title: "Mensagem enviada com sucesso!",
+        description: "Recebemos o seu contacto. A nossa equipa responderá em breve.",
+        variant: "success"
+      });
+    } catch (err: any) {
+      console.error("Erro ao enviar contacto:", err);
+      toast({
+        title: "Erro ao enviar",
+        description: err.message || "Não foi possível registar o seu contacto. Tente novamente ou use o WhatsApp.",
+        variant: "error"
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (isSuccess) {
+    return (
+      <div className="bg-white dark:bg-black p-8 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm text-center py-16">
+        <CheckCircle2 className="w-16 h-16 text-emerald-500 mx-auto mb-4" />
+        <h3 className="text-2xl font-bold text-zinc-900 dark:text-white mb-2">Mensagem Recebida!</h3>
+        <p className="text-zinc-500 max-w-md mx-auto mb-6 text-sm">
+          Obrigado pelo seu contacto. A equipa do Nhonguista entrará em contacto pelo seu número de WhatsApp com brevidade.
+        </p>
+        <Button onClick={() => setIsSuccess(false)} variant="outline">
+          Enviar outra mensagem
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 bg-white dark:bg-black p-8 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
@@ -76,7 +109,7 @@ export function ContactForm() {
         <Input 
           id="name"
           name="name" 
-          placeholder="Ex: Edmilson Muacigarro" 
+          placeholder="Ex: João Silva" 
           value={formData.name}
           onChange={handleChange}
           className={errors.name ? "border-red-500" : ""}
@@ -91,7 +124,6 @@ export function ContactForm() {
         <Input 
           id="phone"
           name="phone" 
-          type="tel"
           placeholder="Ex: 841234567" 
           value={formData.phone}
           onChange={handleChange}
@@ -106,18 +138,25 @@ export function ContactForm() {
         </label>
         <textarea 
           id="message"
-          name="message"
+          name="message" 
           rows={4}
-          placeholder="Como podemos ajudar?"
+          placeholder="Como podemos ajudar? Descreva a sua dúvida ou necessidade..." 
           value={formData.message}
           onChange={handleChange}
-          className={`flex w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-950 ${errors.message ? "border-red-500" : ""}`}
+          className={`w-full rounded-2xl border bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring dark:border-zinc-800 ${errors.message ? "border-red-500" : "border-zinc-200"}`}
         />
         {errors.message && <p className="text-red-500 text-xs mt-1">{errors.message}</p>}
       </div>
 
-      <Button type="submit" disabled={isSubmitting} className="w-full h-12 text-md">
-        {isSubmitting ? "A enviar..." : "Enviar Mensagem"}
+      <Button type="submit" disabled={isSubmitting} className="w-full h-12 bg-orange-600 hover:bg-orange-700 text-white font-bold">
+        {isSubmitting ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            Enviando...
+          </>
+        ) : (
+          "Enviar Mensagem"
+        )}
       </Button>
     </form>
   );

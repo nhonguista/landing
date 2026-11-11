@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Filter, Star, MapPin, ArrowLeft } from 'lucide-react';
+import { Search, MapPin, ArrowLeft, Star, Briefcase } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -13,10 +13,10 @@ interface Service {
     description: string;
     price_min: string;
     price_type: string;
-    images: string[];
-    user: { name: string };
-    category: { name: string; slug: string };
-    location: { name: string };
+    images?: string[];
+    user?: { name: string };
+    category?: { name: string; slug: string };
+    location?: { name: string };
 }
 
 function ServicesContent() {
@@ -34,14 +34,39 @@ function ServicesContent() {
 
     useEffect(() => {
         // Fetch categories for the filter
-        apiFetch('/categories').then(setCategories);
+        apiFetch('/categories')
+            .then((data: any) => {
+                if (Array.isArray(data)) {
+                    setCategories(data);
+                } else if (data?.data && Array.isArray(data.data)) {
+                    setCategories(data.data);
+                } else {
+                    setCategories([]);
+                }
+            })
+            .catch(() => setCategories([]));
     }, []);
 
     useEffect(() => {
         setLoading(true);
-        const query = new URLSearchParams(filters).toString();
-        apiFetch(`/services?${query}`)
-            .then(data => setServices(data.data))
+        const queryParams: Record<string, string> = {};
+        if (filters.category) queryParams.category = filters.category;
+        if (filters.search) queryParams.search = filters.search;
+
+        const query = new URLSearchParams(queryParams).toString();
+        const endpoint = query ? `/services?${query}` : '/services';
+
+        apiFetch(endpoint)
+            .then((data: any) => {
+                if (Array.isArray(data)) {
+                    setServices(data);
+                } else if (data?.data && Array.isArray(data.data)) {
+                    setServices(data.data);
+                } else {
+                    setServices([]);
+                }
+            })
+            .catch(() => setServices([]))
             .finally(() => setLoading(false));
     }, [filters]);
 
@@ -94,7 +119,7 @@ function ServicesContent() {
             <main className="max-w-7xl mx-auto px-6 py-12">
                 <div className="flex items-center justify-between mb-8">
                     <h1 className="text-2xl font-black text-zinc-900 dark:text-zinc-50">
-                        {filters.category ? `Serviços de ${categories.find(c => c.slug === filters.category)?.name}` : 'Todos os Serviços'}
+                        {filters.category ? `Serviços de ${categories.find(c => c.slug === filters.category)?.name || filters.category}` : 'Todos os Serviços'}
                     </h1>
                     <span className="text-sm text-zinc-500">{services.length} resultados encontrados</span>
                 </div>
@@ -114,14 +139,22 @@ function ServicesContent() {
                                 className="group bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-zinc-100 dark:border-zinc-800"
                             >
                                 <div className="relative h-48 bg-zinc-200 dark:bg-zinc-800">
-                                    <img 
-                                        src={service.images?.[0] || 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=800'} 
-                                        alt={service.title}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                    />
-                                    <div className="absolute bottom-3 right-3 px-3 py-1 bg-white/90 dark:bg-black/80 backdrop-blur-md rounded-full text-[10px] font-black text-orange-600 uppercase">
-                                        {service.category.name}
-                                    </div>
+                                    {service.images && service.images[0] ? (
+                                        <img 
+                                            src={service.images[0]} 
+                                            alt={service.title}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-zinc-400">
+                                            <Briefcase className="w-10 h-10 opacity-30" />
+                                        </div>
+                                    )}
+                                    {service.category?.name && (
+                                        <div className="absolute bottom-3 right-3 px-3 py-1 bg-white/90 dark:bg-black/80 backdrop-blur-md rounded-full text-[10px] font-black text-orange-600 uppercase">
+                                            {service.category.name}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="p-5">
                                     <h3 className="font-bold text-zinc-900 dark:text-zinc-50 mb-1 group-hover:text-orange-600 transition-colors line-clamp-1">
@@ -129,15 +162,15 @@ function ServicesContent() {
                                     </h3>
                                     <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 mb-4">
                                         <MapPin className="w-3 h-3" />
-                                        {service.location.name}
+                                        {service.location?.name || 'Nampula'}
                                     </div>
                                     <div className="flex items-center justify-between pt-4 border-t border-zinc-50 dark:border-zinc-800">
                                         <div className="text-xs font-bold text-zinc-900 dark:text-zinc-50">
-                                            {new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(Number(service.price_min))}
+                                            {service.price_min ? `${Number(service.price_min).toLocaleString()} MT` : 'Sob Consulta'}
                                         </div>
                                         <div className="flex items-center gap-1 text-orange-500">
                                             <Star className="w-3 h-3 fill-current" />
-                                            <span className="text-xs font-bold">4.8</span>
+                                            <span className="text-xs font-bold">5.0</span>
                                         </div>
                                     </div>
                                 </div>
@@ -153,7 +186,7 @@ function ServicesContent() {
                         <p className="text-zinc-500 mt-2">Tente ajustar os seus filtros ou pesquisar por outro termo.</p>
                         <button 
                             onClick={() => setFilters({category: '', search: ''})}
-                            className="mt-6 text-orange-600 font-bold"
+                            className="mt-6 text-orange-600 font-bold hover:underline"
                         >
                             Limpar todos os filtros
                         </button>
@@ -166,7 +199,7 @@ function ServicesContent() {
 
 export default function ServicesPage() {
     return (
-        <Suspense fallback={<div>Carregando...</div>}>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Carregando...</div>}>
             <ServicesContent />
         </Suspense>
     );

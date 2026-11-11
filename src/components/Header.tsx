@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { LogOut, User as UserIcon, Menu } from "lucide-react";
+import { LogOut, User as UserIcon, Menu, X, ArrowRight } from "lucide-react";
 import { 
     Button, 
     Container, 
@@ -18,14 +18,14 @@ import {
 
 export function Header() {
     const { user, logout, isAuthenticated } = useAuth();
-    const [open, setOpen] = React.useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
     return (
         <header className="sticky top-0 z-50 flex items-center justify-center px-6 py-4 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-zinc-100 dark:border-zinc-900">
             <Container className="flex items-center justify-between px-0 sm:px-0 lg:px-0">
                 <div className="flex items-center gap-2">
                     <Link href="/" className="flex items-center gap-2 group">
-                        <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-orange-600/20 group-hover:scale-110 transition-transform">
+                        <div className="w-10 h-10 rounded-xl bg-orange-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-orange-600/20 group-hover:scale-105 transition-transform">
                             N
                         </div>
                         <div className="text-2xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight">
@@ -36,9 +36,10 @@ export function Header() {
             
                 {/* Desktop Navigation */}
                 <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-zinc-600 dark:text-zinc-400">
+                    <Link href="/servicos" className="hover:text-orange-600 transition-colors">Serviços</Link>
                     <Link href="/prestadores" className="hover:text-orange-600 transition-colors">Prestadores</Link>
-                    <Link href="#como-funciona" className="hover:text-orange-600 transition-colors">Como Funciona</Link>
-                    <Link href="/sobre" className="hover:text-orange-600 transition-colors">Sobre</Link>
+                    <Link href="/#como-funciona" className="hover:text-orange-600 transition-colors">Como Funciona</Link>
+                    <Link href="/contacto" className="hover:text-orange-600 transition-colors">Contacto</Link>
                 </nav>
 
                 <div className="flex items-center gap-4">
@@ -49,7 +50,7 @@ export function Header() {
                                 <div className="hidden sm:flex flex-col items-end mr-2">
                                     <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">{user?.name}</span>
                                     <span className="text-[10px] text-orange-600 font-black uppercase tracking-widest">
-                                        {user?.roles[0]?.name || 'Membro'}
+                                        {user?.roles?.[0]?.name || 'Membro'}
                                     </span>
                                 </div>
                                 <Avatar className="w-10 h-10 border border-zinc-200 dark:border-zinc-800">
@@ -68,76 +69,78 @@ export function Header() {
                         ) : (
                             <div className="flex items-center gap-3">
                                 <Button variant="ghost" size="sm" asChild>
-                                    <Link href={process.env.NEXT_PUBLIC_CORE_URL ? `${process.env.NEXT_PUBLIC_CORE_URL}/login` : "http://localhost:3000/login"}>Entrar</Link>
+                                    <Link href="/login">Entrar</Link>
                                 </Button>
-                                <Button size="sm" asChild>
-                                    <Link href={process.env.NEXT_PUBLIC_CORE_URL ? `${process.env.NEXT_PUBLIC_CORE_URL}/registo` : "http://localhost:3000/registo"}>Criar Conta</Link>
+                                <Button size="sm" asChild className="bg-orange-600 hover:bg-orange-700 text-white">
+                                    <Link href="/registo">Criar Conta</Link>
                                 </Button>
                             </div>
                         )}
                     </div>
 
-                    {/* Mobile Menu Trigger */}
-                    <div className="md:hidden flex items-center">
-                        <Dialog open={open} onOpenChange={setOpen}>
-                            <DialogTrigger asChild>
-                                <button className="p-2 -mr-2 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100">
-                                    <Menu className="w-6 h-6" />
-                                    <span className="sr-only">Menu</span>
-                                </button>
-                            </DialogTrigger>
-                            <DialogContent className="fixed right-0 top-0 left-auto bottom-0 w-[300px] h-full rounded-none translate-x-0 translate-y-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-top-0 data-[state=open]:slide-in-from-top-0 sm:max-w-xs">
-                                <DialogTitle className="sr-only">Menu de Navegação</DialogTitle>
-                                <DialogDescription className="sr-only">Menu para navegação principal em dispositivos móveis</DialogDescription>
-                                
-                                <div className="flex flex-col h-full mt-6">
-                                    <nav className="flex flex-col gap-6 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                                        <Link href="/prestadores" onClick={() => setOpen(false)} className="hover:text-orange-600 transition-colors">Prestadores</Link>
-                                        <Link href="#como-funciona" onClick={() => setOpen(false)} className="hover:text-orange-600 transition-colors">Como Funciona</Link>
-                                        <Link href="/sobre" onClick={() => setOpen(false)} className="hover:text-orange-600 transition-colors">Sobre a Nhonguista</Link>
-                                    </nav>
-
-                                    <div className="mt-auto pt-6 border-t border-zinc-100 dark:border-zinc-800">
-                                        {isAuthenticated ? (
-                                            <div className="flex flex-col gap-4">
-                                                <div className="flex items-center gap-3">
-                                                    <Avatar className="w-12 h-12">
-                                                        <AvatarFallback className="bg-brand/10 text-brand font-bold text-lg">
-                                                            {user?.name?.substring(0, 2).toUpperCase() || 'US'}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <div className="flex flex-col">
-                                                        <span className="font-bold text-zinc-900 dark:text-zinc-50">{user?.name}</span>
-                                                        <span className="text-xs text-orange-600 font-black uppercase tracking-widest">
-                                                            {user?.roles[0]?.name || 'Membro'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <Button 
-                                                    variant="destructive" 
-                                                    className="w-full justify-start gap-2 mt-4" 
-                                                    onClick={() => { logout(); setOpen(false); }}
-                                                >
-                                                    <LogOut className="w-4 h-4" /> Sair da Conta
-                                                </Button>
-                                            </div>
-                                        ) : (
-                                            <div className="flex flex-col gap-3">
-                                                <Button variant="outline" className="w-full" asChild onClick={() => setOpen(false)}>
-                                                    <Link href={process.env.NEXT_PUBLIC_CORE_URL ? `${process.env.NEXT_PUBLIC_CORE_URL}/login` : "http://localhost:3000/login"}>Entrar</Link>
-                                                </Button>
-                                                <Button className="w-full" asChild onClick={() => setOpen(false)}>
-                                                    <Link href={process.env.NEXT_PUBLIC_CORE_URL ? `${process.env.NEXT_PUBLIC_CORE_URL}/registo` : "http://localhost:3000/registo"}>Criar Conta</Link>
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </DialogContent>
-                        </Dialog>
+                    {/* Mobile Menu Button */}
+                    <div className="flex md:hidden">
+                        <button
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            className="p-2 rounded-xl text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        >
+                            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                        </button>
                     </div>
                 </div>
             </Container>
+
+            {/* Mobile Dropdown Menu */}
+            {mobileMenuOpen && (
+                <div className="absolute top-full left-0 w-full bg-white dark:bg-black border-b border-zinc-200 dark:border-zinc-800 p-6 flex flex-col gap-4 shadow-xl md:hidden">
+                    <Link 
+                        href="/servicos" 
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-semibold text-zinc-700 dark:text-zinc-300 py-2 border-b border-zinc-100 dark:border-zinc-800"
+                    >
+                        Serviços
+                    </Link>
+                    <Link 
+                        href="/prestadores" 
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-semibold text-zinc-700 dark:text-zinc-300 py-2 border-b border-zinc-100 dark:border-zinc-800"
+                    >
+                        Prestadores
+                    </Link>
+                    <Link 
+                        href="/#como-funciona" 
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-semibold text-zinc-700 dark:text-zinc-300 py-2 border-b border-zinc-100 dark:border-zinc-800"
+                    >
+                        Como Funciona
+                    </Link>
+                    <Link 
+                        href="/contacto" 
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="text-base font-semibold text-zinc-700 dark:text-zinc-300 py-2 border-b border-zinc-100 dark:border-zinc-800"
+                    >
+                        Contacto
+                    </Link>
+
+                    {isAuthenticated ? (
+                        <div className="pt-2 flex items-center justify-between">
+                            <span className="text-sm font-bold">{user?.name}</span>
+                            <button onClick={() => { logout(); setMobileMenuOpen(false); }} className="text-sm text-red-600 font-bold">
+                                Sair
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="pt-2 grid grid-cols-2 gap-3">
+                            <Button variant="outline" asChild onClick={() => setMobileMenuOpen(false)}>
+                                <Link href="/login">Entrar</Link>
+                            </Button>
+                            <Button asChild className="bg-orange-600 text-white" onClick={() => setMobileMenuOpen(false)}>
+                                <Link href="/registo">Criar Conta</Link>
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            )}
         </header>
     );
 }

@@ -4,42 +4,38 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import * as Icons from 'lucide-react';
 import { motion } from 'framer-motion';
-import { apiFetch } from '@/lib/api';
+import { nhonguistaClient } from '@/lib/api';
 import { Container } from '@nhonguista/ui';
 
 interface Category {
     id: string;
     name: string;
     slug: string;
-    icon: string;
+    icon?: string;
 }
 
 export function Categories() {
     const [categories, setCategories] = useState<Category[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Fallback data in case the API is not ready
-        const fallbackCategories = [
-            { id: '1', name: 'Construção', slug: 'construcao', icon: 'HardHat' },
-            { id: '2', name: 'Limpeza', slug: 'limpeza', icon: 'Sparkles' },
-            { id: '3', name: 'Tecnologia', slug: 'tecnologia', icon: 'Laptop' },
-            { id: '4', name: 'Canalização', slug: 'canalizacao', icon: 'Wrench' },
-            { id: '5', name: 'Jardinagem', slug: 'jardinagem', icon: 'Leaf' },
-            { id: '6', name: 'Eventos', slug: 'eventos', icon: 'CalendarDays' },
-            { id: '7', name: 'Design', slug: 'design', icon: 'PenTool' },
-            { id: '8', name: 'Transporte', slug: 'transporte', icon: 'Truck' },
-        ];
-
-        apiFetch('/categories')
-            .then(data => {
-                if (data && data.length > 0) {
+        // Consome diretamente através do SDK oficial Nhonguista
+        nhonguistaClient.categories.list()
+            .then((data: any) => {
+                if (Array.isArray(data)) {
                     setCategories(data.slice(0, 8));
+                } else if (data?.data && Array.isArray(data.data)) {
+                    setCategories(data.data.slice(0, 8));
                 } else {
-                    setCategories(fallbackCategories);
+                    setCategories([]);
                 }
             })
-            .catch(() => setCategories(fallbackCategories))
+            .catch((err: any) => {
+                console.error("Erro ao carregar categorias da API:", err);
+                setError("Não foi possível carregar as categorias neste momento.");
+                setCategories([]);
+            })
             .finally(() => setLoading(false));
     }, []);
 
@@ -89,39 +85,50 @@ export function Categories() {
                     <Icons.ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
             </div>
-            
-            <motion.div 
-                variants={containerVariants}
-                initial="hidden"
-                whileInView="show"
-                viewport={{ once: true, margin: "-100px" }}
-                className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 sm:gap-6"
-            >
-                {categories.map((cat, index) => {
-                    const IconComponent = (Icons as any)[cat.icon] || Icons.LayoutGrid;
-                    
-                    // Alternate colors for visual interest
-                    const isBrand = index % 3 === 0;
-                    
-                    return (
-                        <motion.div key={cat.id} variants={itemVariants}>
-                            <Link 
-                                href={`/servicos?category=${cat.slug}`}
-                                className="group relative overflow-hidden flex flex-col items-center justify-center p-8 sm:p-10 bg-white dark:bg-zinc-900/40 backdrop-blur-sm rounded-3xl border border-zinc-100 dark:border-zinc-800 transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_40px_-15px_rgba(253,67,0,0.2)] dark:hover:shadow-[0_20px_40px_-15px_rgba(253,67,0,0.3)] hover:border-brand/30"
-                            >
-                                <div className="absolute inset-0 bg-gradient-to-br from-transparent to-black/5 dark:to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                
-                                <div className="relative z-10 p-5 rounded-2xl mb-5 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 bg-brand/10 text-brand dark:bg-brand/20">
-                                    <IconComponent className="w-8 h-8 sm:w-10 sm:h-10" strokeWidth={1.5} />
-                                </div>
-                                <span className="relative z-10 font-bold text-lg text-zinc-900 dark:text-zinc-100 text-center group-hover:text-brand transition-colors">
-                                    {cat.name}
-                                </span>
-                            </Link>
-                        </motion.div>
-                    );
-                })}
-            </motion.div>
+
+            {error && (
+                <div className="p-6 mb-8 text-center rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-200 text-sm">
+                    {error}
+                </div>
+            )}
+
+            {categories.length === 0 && !error ? (
+                <div className="p-12 text-center rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800 text-zinc-500">
+                    <Icons.FolderOpen className="w-12 h-12 mx-auto mb-3 text-zinc-400 stroke-1" />
+                    <p className="text-base font-medium">Nenhuma categoria cadastrada no momento.</p>
+                </div>
+            ) : (
+                <motion.div 
+                    variants={containerVariants}
+                    initial="hidden"
+                    whileInView="show"
+                    viewport={{ once: true, margin: "-100px" }}
+                    className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 sm:gap-6"
+                >
+                    {categories.map((cat) => {
+                        const iconKey = cat.icon || 'LayoutGrid';
+                        const IconComponent = (Icons as any)[iconKey] || Icons.LayoutGrid;
+                        
+                        return (
+                            <motion.div key={cat.id} variants={itemVariants}>
+                                <Link 
+                                    href={`/servicos?category=${cat.slug}`}
+                                    className="group relative overflow-hidden flex flex-col items-center justify-center p-8 sm:p-10 bg-white dark:bg-zinc-900/40 backdrop-blur-sm rounded-3xl border border-zinc-100 dark:border-zinc-800 transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_20px_40px_-15px_rgba(253,67,0,0.2)] dark:hover:shadow-[0_20px_40px_-15px_rgba(253,67,0,0.3)] hover:border-brand/30"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-br from-transparent to-black/5 dark:to-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                    
+                                    <div className="relative z-10 p-5 rounded-2xl mb-5 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 bg-brand/10 text-brand dark:bg-brand/20">
+                                        <IconComponent className="w-8 h-8 sm:w-10 sm:h-10" strokeWidth={1.5} />
+                                    </div>
+                                    <span className="relative z-10 font-bold text-lg text-zinc-900 dark:text-zinc-100 text-center group-hover:text-brand transition-colors">
+                                        {cat.name}
+                                    </span>
+                                </Link>
+                            </motion.div>
+                        );
+                    })}
+                </motion.div>
+            )}
         </Container>
     );
 }

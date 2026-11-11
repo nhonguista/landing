@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiFetch } from '@/lib/api';
 import { 
     Star, MapPin, ArrowLeft, MessageCircle, 
-    ShieldCheck, Calendar, Info, Loader2 
+    ShieldCheck, Calendar, Info, Loader2, Briefcase 
 } from 'lucide-react';
 
 interface Service {
@@ -17,11 +17,11 @@ interface Service {
     price_min: string;
     price_max: string;
     price_type: string;
-    images: string[];
-    user: { id: string; name: string; avatar: string | null; phone: string };
-    category: { name: string };
-    location: { name: string };
-    reviews: any[];
+    images?: string[];
+    user?: { id: string; name: string; avatar: string | null; phone: string };
+    category?: { name: string };
+    location?: { name: string };
+    reviews?: any[];
 }
 
 export default function ServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -29,13 +29,27 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
     const [service, setService] = useState<Service | null>(null);
     const [loading, setLoading] = useState(true);
     const [isContacting, setIsContacting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     
     const router = useRouter();
     const { isAuthenticated, token } = useAuth();
 
     useEffect(() => {
         apiFetch(`/services/${id}`)
-            .then(setService)
+            .then((data: any) => {
+                if (data?.data) {
+                    setService(data.data);
+                } else if (data && data.id) {
+                    setService(data);
+                } else {
+                    setService(null);
+                }
+            })
+            .catch((err: any) => {
+                console.error('Erro ao buscar detalhes do serviço:', err);
+                setError('Serviço não encontrado ou indisponível.');
+                setService(null);
+            })
             .finally(() => setLoading(false));
     }, [id]);
 
@@ -45,7 +59,7 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
             return;
         }
 
-        if (!service) return;
+        if (!service || !service.user) return;
 
         setIsContacting(true);
         try {
@@ -61,22 +75,48 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
             });
 
             // Redirect to WhatsApp
+            const phone = service.user.phone || '';
+            const cleanPhone = phone.replace(/\D/g, '');
+            const finalPhone = cleanPhone.startsWith('258') ? cleanPhone : `258${cleanPhone}`;
             const whatsappMessage = encodeURIComponent(`Olá ${service.user.name}, vi o seu serviço "${service.title}" no Nhonguista e gostaria de saber mais.`);
-            window.open(`https://wa.me/258${service.user.phone}?text=${whatsappMessage}`, '_blank');
+            window.open(`https://wa.me/${finalPhone}?text=${whatsappMessage}`, '_blank');
         } catch (err) {
             console.error('Erro ao registar contacto:', err);
-            // Even if DB fails, let's allow the redirect in MVP, or show error
-            window.open(`https://wa.me/258${service.user.phone}`, '_blank');
+            if (service.user.phone) {
+                const phone = service.user.phone.replace(/\D/g, '');
+                const finalPhone = phone.startsWith('258') ? phone : `258${phone}`;
+                window.open(`https://wa.me/${finalPhone}`, '_blank');
+            }
         } finally {
             setIsContacting(false);
         }
     };
 
     if (loading) {
-        return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-orange-600" /></div>;
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center gap-3">
+                <Loader2 className="w-10 h-10 animate-spin text-orange-600" />
+                <span className="text-sm text-zinc-500">Carregando detalhes do serviço...</span>
+            </div>
+        );
     }
 
-    if (!service) return <div>Serviço não encontrado.</div>;
+    if (!service) {
+        return (
+            <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
+                <Briefcase className="w-16 h-16 text-zinc-400 stroke-1 mb-4" />
+                <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">Serviço não encontrado</h2>
+                <p className="text-zinc-500 max-w-md mb-6">{error || 'O serviço solicitado não existe ou pode ter sido removido.'}</p>
+                <Link 
+                    href="/servicos" 
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-orange-600 hover:bg-orange-700 text-white font-bold transition-colors"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                    Voltar aos Serviços
+                </Link>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20">
@@ -86,7 +126,9 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
                         <ArrowLeft className="w-5 h-5" />
                         Voltar
                     </Link>
-                    <div className="text-sm font-black uppercase tracking-widest text-orange-600">{service.category.name}</div>
+                    <div className="text-sm font-black uppercase tracking-widest text-orange-600">
+                        {service.category?.name || 'Geral'}
+                    </div>
                 </div>
             </header>
 
@@ -94,11 +136,17 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
                 <div className="lg:col-span-2">
                     {/* Image Gallery */}
                     <div className="aspect-video rounded-[2.5rem] overflow-hidden bg-zinc-200 dark:bg-zinc-800 mb-8 shadow-2xl">
-                        <img 
-                            src={service.images?.[0] || 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=800'} 
-                            alt={service.title}
-                            className="w-full h-full object-cover"
-                        />
+                        {service.images && service.images[0] ? (
+                            <img 
+                                src={service.images[0]} 
+                                alt={service.title}
+                                className="w-full h-full object-cover"
+                            />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-zinc-400">
+                                <Briefcase className="w-16 h-16 opacity-30" />
+                            </div>
+                        )}
                     </div>
 
                     <h1 className="text-3xl sm:text-4xl font-black text-zinc-900 dark:text-zinc-50 mb-4 leading-tight">
@@ -108,18 +156,18 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
                     <div className="flex flex-wrap items-center gap-6 mb-8 text-sm">
                         <div className="flex items-center gap-1 text-orange-500 font-bold">
                             <Star className="w-5 h-5 fill-current" />
-                            4.9 (12 avaliações)
+                            5.0
                         </div>
                         <div className="flex items-center gap-1 text-zinc-500">
                             <MapPin className="w-5 h-5" />
-                            {service.location.name}, Nampula
+                            {service.location?.name || 'Nampula'}, Moçambique
                         </div>
                     </div>
 
                     <div className="prose dark:prose-invert max-w-none mb-12">
                         <h3 className="text-xl font-bold mb-4">Sobre este serviço</h3>
                         <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed whitespace-pre-wrap">
-                            {service.description}
+                            {service.description || 'Nenhuma descrição fornecida pelo profissional.'}
                         </p>
                     </div>
 
@@ -140,76 +188,58 @@ export default function ServiceDetailPage({ params }: { params: Promise<{ id: st
                             </div>
                             <div>
                                 <h4 className="font-bold mb-1">Disponibilidade</h4>
-                                <p className="text-sm text-zinc-500">Atendimento em horário comercial e urgências em Nampula.</p>
+                                <p className="text-sm text-zinc-500">Horário flexível e atendimento rápido.</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Sidebar / Contact */}
-                <div className="lg:col-span-1">
-                    <div className="sticky top-24 bg-white dark:bg-zinc-900 p-8 rounded-[3rem] shadow-2xl shadow-zinc-200/50 dark:shadow-none border border-zinc-100 dark:border-zinc-800">
-                        <div className="mb-8">
-                            <p className="text-sm text-zinc-500 mb-1">Preço estimado</p>
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-black text-zinc-900 dark:text-zinc-50">
-                                    {new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(Number(service.price_min))}
-                                </span>
-                                {service.price_max && (
-                                    <span className="text-zinc-400 font-medium">
-                                        - {new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(Number(service.price_max))}
-                                    </span>
-                                )}
+                {/* Sidebar / CTA */}
+                <div>
+                    <div className="p-8 bg-white dark:bg-zinc-900 rounded-[2.5rem] border border-zinc-100 dark:border-zinc-800 shadow-xl sticky top-28">
+                        <div className="mb-6">
+                            <span className="text-xs text-zinc-400 font-bold uppercase tracking-wider block mb-1">Preço estimado</span>
+                            <div className="text-3xl font-black text-orange-600">
+                                {service.price_min ? `${Number(service.price_min).toLocaleString()} MT` : 'Sob Consulta'}
                             </div>
-                            <span className="text-xs font-bold text-orange-600 uppercase tracking-widest mt-2 block">
-                                {service.price_type === 'fixo' ? 'Preço Fixo' : 'Preço Inicial / Negociável'}
+                            <span className="text-xs text-zinc-500">
+                                {service.price_type === 'hora' ? 'Por hora de serviço' : service.price_type === 'fixo' ? 'Preço fixo' : 'Negociável com o prestador'}
                             </span>
                         </div>
 
-                        <div className="p-6 bg-zinc-50 dark:bg-zinc-950 rounded-3xl mb-8 flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-2xl bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
-                                {service.user.avatar ? (
-                                    <img src={service.user.avatar} alt={service.user.name} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-xl font-black text-zinc-500">
-                                        {service.user.name.charAt(0)}
-                                    </div>
-                                )}
+                        {service.user && (
+                            <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl mb-6 flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-950/50 text-orange-600 flex items-center justify-center font-bold text-lg">
+                                    {service.user.name.slice(0, 2).toUpperCase()}
+                                </div>
+                                <div className="overflow-hidden">
+                                    <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-50 truncate">{service.user.name}</h4>
+                                    <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                                        <span className="w-2 h-2 rounded-full bg-green-500 inline-block animate-pulse"></span>
+                                        Prestador Ativo
+                                    </span>
+                                </div>
                             </div>
-                            <div>
-                                <h4 className="font-bold text-zinc-900 dark:text-zinc-50">{service.user.name}</h4>
-                                <p className="text-xs text-zinc-500">Membro desde 2026</p>
-                            </div>
-                        </div>
+                        )}
 
                         <button 
                             onClick={handleContact}
                             disabled={isContacting}
-                            className="w-full h-16 rounded-2xl bg-green-600 text-white font-black text-lg flex items-center justify-center gap-3 hover:bg-green-700 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-green-600/20 disabled:opacity-50"
+                            className="w-full h-14 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-2xl flex items-center justify-center gap-3 transition-colors shadow-lg shadow-orange-600/20 disabled:opacity-50"
                         >
                             {isContacting ? (
-                                <Loader2 className="w-6 h-6 animate-spin" />
+                                <Loader2 className="w-5 h-5 animate-spin" />
                             ) : (
                                 <>
-                                    <MessageCircle className="w-6 h-6" />
-                                    Contactar via WhatsApp
+                                    <MessageCircle className="w-5 h-5" />
+                                    Contactar Prestador
                                 </>
                             )}
                         </button>
-                        
-                        {!isAuthenticated && (
-                            <p className="text-center text-xs text-zinc-500 mt-4">
-                                Precisa de estar logado para contactar o profissional.
-                            </p>
-                        )}
 
-                        <div className="mt-8 pt-8 border-t border-zinc-100 dark:border-zinc-800">
-                            <div className="flex items-start gap-3 text-xs text-zinc-400">
-                                <Info className="w-4 h-4 mt-0.5" />
-                                <p>
-                                    Ao contactar, você concorda com os nossos Termos de Uso. O Nhonguista apenas facilita a conexão entre as partes.
-                                </p>
-                            </div>
+                        <div className="mt-6 flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 rounded-2xl border border-amber-200/50 dark:border-amber-900/30 text-amber-800 dark:text-amber-200 text-xs">
+                            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                            <p>O Nhonguista facilita a conexão inicial. Todos os detalhes e pagamentos devem ser combinados com o prestador.</p>
                         </div>
                     </div>
                 </div>
