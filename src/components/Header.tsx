@@ -3,21 +3,16 @@
 import * as React from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
-import { LogOut, User as UserIcon, Menu, X, ArrowRight } from "lucide-react";
+import { LogOut, User as UserIcon, Menu, X, LayoutDashboard, Building2, ShieldCheck } from "lucide-react";
 import { 
     Button, 
     Container, 
     Avatar, 
-    AvatarFallback,
-    Dialog,
-    DialogTrigger,
-    DialogContent,
-    DialogTitle,
-    DialogDescription
+    AvatarFallback
 } from "@nhonguista/ui";
 
 export function Header() {
-    const { user, logout, isAuthenticated } = useAuth();
+    const { user, logout, isAuthenticated, isProvider, isAdmin } = useAuth();
     const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
     return (
@@ -35,11 +30,44 @@ export function Header() {
                 </div>
             
                 {/* Desktop Navigation */}
-                <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-zinc-600 dark:text-zinc-400">
+                <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-zinc-600 dark:text-zinc-400">
                     <Link href="/servicos" className="hover:text-orange-600 transition-colors">Serviços</Link>
                     <Link href="/prestadores" className="hover:text-orange-600 transition-colors">Prestadores</Link>
                     <Link href="/#como-funciona" className="hover:text-orange-600 transition-colors">Como Funciona</Link>
                     <Link href="/contacto" className="hover:text-orange-600 transition-colors">Contacto</Link>
+                    
+                    {/* Painéis baseados no perfil */}
+                    {isAuthenticated && (
+                        <div className="flex items-center gap-4 pl-4 border-l border-zinc-200 dark:border-zinc-800">
+                            {(isProvider || isAdmin) && (
+                                <Link 
+                                    href="/dashboard" 
+                                    className="flex items-center gap-1.5 text-orange-600 dark:text-orange-400 hover:text-orange-700 font-bold"
+                                >
+                                    <LayoutDashboard className="w-4 h-4" />
+                                    Painel Prestador
+                                </Link>
+                            )}
+                            {(isProvider || isAdmin) && (
+                                <Link 
+                                    href="/company" 
+                                    className="flex items-center gap-1.5 hover:text-orange-600 transition-colors"
+                                >
+                                    <Building2 className="w-4 h-4" />
+                                    Empresa
+                                </Link>
+                            )}
+                            {isAdmin && (
+                                <Link 
+                                    href="/admin" 
+                                    className="flex items-center gap-1.5 text-purple-600 hover:text-purple-700 font-bold"
+                                >
+                                    <ShieldCheck className="w-4 h-4" />
+                                    Admin
+                                </Link>
+                            )}
+                        </div>
+                    )}
                 </nav>
 
                 <div className="flex items-center gap-4">
@@ -47,14 +75,14 @@ export function Header() {
                     <div className="hidden md:flex items-center gap-4">
                         {isAuthenticated ? (
                             <div className="flex items-center gap-4">
-                                <div className="hidden sm:flex flex-col items-end mr-2">
+                                <div className="hidden sm:flex flex-col items-end mr-1">
                                     <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">{user?.name}</span>
                                     <span className="text-[10px] text-orange-600 font-black uppercase tracking-widest">
-                                        {user?.roles?.[0]?.name || 'Membro'}
+                                        {user?.roles?.[0]?.name || (isAdmin ? 'Admin' : isProvider ? 'Prestador' : 'Cliente')}
                                     </span>
                                 </div>
                                 <Avatar className="w-10 h-10 border border-zinc-200 dark:border-zinc-800">
-                                    <AvatarFallback className="bg-brand/10 text-brand font-bold">
+                                    <AvatarFallback className="bg-orange-600/10 text-orange-600 font-bold">
                                         {user?.name?.substring(0, 2).toUpperCase() || 'US'}
                                     </AvatarFallback>
                                 </Avatar>
@@ -121,6 +149,41 @@ export function Header() {
                     >
                         Contacto
                     </Link>
+
+                    {isAuthenticated && (
+                        <div className="py-2 flex flex-col gap-2 border-b border-zinc-100 dark:border-zinc-800">
+                            {(isProvider || isAdmin) && (
+                                <Link 
+                                    href="/dashboard"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className="text-orange-600 font-bold py-1 flex items-center gap-2"
+                                >
+                                    <LayoutDashboard className="w-4 h-4" />
+                                    Painel do Prestador
+                                </Link>
+                            )}
+                            {(isProvider || isAdmin) && (
+                                <Link 
+                                    href="/company"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className="text-zinc-700 dark:text-zinc-300 font-semibold py-1 flex items-center gap-2"
+                                >
+                                    <Building2 className="w-4 h-4" />
+                                    Empresa
+                                </Link>
+                            )}
+                            {isAdmin && (
+                                <Link 
+                                    href="/admin"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className="text-purple-600 font-bold py-1 flex items-center gap-2"
+                                >
+                                    <ShieldCheck className="w-4 h-4" />
+                                    Painel de Administração
+                                </Link>
+                            )}
+                        </div>
+                    )}
 
                     {isAuthenticated ? (
                         <div className="pt-2 flex items-center justify-between">

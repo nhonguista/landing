@@ -1,25 +1,28 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { apiFetch } from '@/lib/api';
-
-interface User {
-    id: string;
-    name: string;
-    email: string;
-    phone: string;
-    roles: Array<{ slug: string; name: string }>;
-}
+import { nhonguistaClient, apiFetch } from '@/lib/api';
+import type { User, ProviderProfile, Company } from '@nhonguista/sdk';
 
 interface AuthContextType {
     user: User | null;
     token: string | null;
     loading: boolean;
     login: (phone: string, password: string) => Promise<void>;
-    register: (data: any) => Promise<void>;
+    register: (data: {
+        name: string;
+        email?: string;
+        phone: string;
+        password: string;
+        role?: 'client' | 'provider' | 'admin';
+    }) => Promise<void>;
     logout: () => void;
+    refreshUser: () => Promise<void>;
     isAuthenticated: boolean;
     hasRole: (roleSlug: string) => boolean;
+    isProvider: boolean;
+    isAdmin: boolean;
+    isClient: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,53 +32,99 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [token, setToken] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
+    const syncToken = (authToken: string | null) => {
+        setToken(authToken);
+        nhonguistaClient.setAuthToken(authToken);
+        if (authToken) {
+            localStorage.setItem('nhonguista_token', authToken);
+        } else {
+            localStorage.removeItem('nhonguista_token');
+        }
+    };
+
+    const syncUser = (authUser: User | null) => {
+        setUser(authUser);
+        if (authUser) {
+            localStorage.setItem('nhonguista_user', JSON.stringify(authUser));
+        } else {
+            localStorage.removeItem('nhonguista_user');
+        }
+    };
+
+    const refreshUser = async () => {
+        try {
+            const currentToken = localStorage.getItem('nhonguista_token');
+            if (!currentToken) return;
+
+            nhonguistaClient.setAuthToken(currentToken);
+            const response = await nhonguistaClient.auth.me();
+            if (response && response.user) {
+                syncUser(response.user);
+            }
+        } catch (err) {
+            console.warn('Falha ao atualizar sessão do utilizador:', err);
+        }
+    };
+
     useEffect(() => {
         const storedToken = localStorage.getItem('nhonguista_token');
         const storedUser = localStorage.getItem('nhonguista_user');
 
         if (storedToken && storedUser) {
-            setToken(storedToken);
-            setUser(JSON.parse(storedUser));
+            try {
+                const parsedUser = JSON.parse(storedUser);
+                setToken(storedToken);
+                setUser(parsedUser);
+                nhonguistaClient.setAuthToken(storedToken);
+                // Background refresh
+                refreshUser();
+            } catch (e) {
+                console.error('Erro ao ler utilizador armazenado:', e);
+                localStorage.removeItem('nhonguista_token');
+                localStorage.removeItem('nhonguista_user');
+            }
         }
         setLoading(false);
     }, []);
 
     const login = async (phone: string, password: string) => {
-        const data = await apiFetch('/login', {
-            method: 'POST',
-            body: JSON.stringify({ phone, password }),
-        });
-
-        const { user, token } = data;
-        setToken(token);
-        setUser(user);
-        localStorage.setItem('nhonguista_token', token);
-        localStorage.setItem('nhonguista_user', JSON.stringify(user));
+        const response = await nhonguistaClient.auth.login(phone, password);
+        const { user: loggedUser, token: authToken } = response;
+        syncToken(authToken);
+        syncUser(loggedUser);
     };
 
-    const register = async (formData: any) => {
-        const data = await apiFetch('/register', {
-            method: 'POST',
-            body: JSON.stringify(formData),
-        });
-
-        const { user, token } = data;
-        setToken(token);
-        setUser(user);
-        localStorage.setItem('nhonguista_token', token);
-        localStorage.setItem('nhonguista_user', JSON.stringify(user));
+    const register = async (formData: {
+        name: string;
+        email?: string;
+        phone: string;
+        password: string;
+        role?: 'client' | 'provider' | 'admin';
+    }) => {
+        const response = await nhonguistaClient.auth.register(formData);
+        const { user: registeredUser, token: authToken } = response;
+        syncToken(authToken);
+        syncUser(registeredUser);
     };
 
-    const logout = () => {
-        setToken(null);
-        setUser(null);
-        localStorage.removeItem('nhonguista_token');
-        localStorage.removeItem('nhonguista_user');
+    const logout = async () => {
+        try {
+            if (token) {
+                await nhonguistaClient.auth.logout().catch(() => {});
+            }
+        } finally {
+            syncToken(null);
+            syncUser(null);
+        }
     };
 
     const hasRole = (roleSlug: string) => {
-        return user?.roles.some(role => role.slug === roleSlug) || false;
+        return user?.roles?.some(role => role.slug === roleSlug) || false;
     };
+
+    const isProvider = hasRole('provider');
+    const isAdmin = hasRole('admin');
+    const isClient = hasRole('client');
 
     return (
         <AuthContext.Provider value={{ 
@@ -85,8 +134,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             login, 
             register, 
             logout, 
+            refreshUser,
             isAuthenticated: !!token,
-            hasRole
+            hasRole,
+            isProvider,
+            isAdmin,
+            isClient
         }}>
             {children}
         </AuthContext.Provider>

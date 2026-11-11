@@ -13,12 +13,18 @@ function RegisterForm() {
     const searchParams = useSearchParams();
     const defaultRole = searchParams.get('role') || 'client';
 
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        name: string;
+        email: string;
+        phone: string;
+        password: string;
+        role: 'client' | 'provider' | 'admin';
+    }>({
         name: '',
         email: '',
         phone: '',
         password: '',
-        role: defaultRole
+        role: (defaultRole === 'provider' ? 'provider' : 'client')
     });
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
